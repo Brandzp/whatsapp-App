@@ -76,10 +76,24 @@ WhatsApp `audio` message) right before the question text.
 
 ---
 
+### 5. Deployed to Render (single service) ✅
+One Render web service builds the React admin app and serves it from the Express
+backend (same origin, no CORS). Live as of **2026-06-09**.
+- Root [package.json](package.json) lets Render's default commands work:
+  `postinstall` builds the frontend + installs the backend; `start` runs the backend.
+  `--include=dev` forces vite/prisma to install despite `NODE_ENV=production`.
+- [render.yaml](render.yaml) blueprint also present (for Blueprint-based deploys).
+- Repo: `Brandzp/whatsapp-App` (origin re-pointed here after a GitHub Desktop fork
+  detour; the fork `YohadH/whatsapp-App` also has the history).
+
+---
+
 ## TODO / open items
-- [ ] Edit `.env` with **real** company name + contact email (placeholders won't pass Meta review).
-- [ ] Deploy backend to a **public HTTPS** host (localhost won't pass Meta's URL check).
-- [ ] Paste the two URLs into the Meta app dashboard to unlock the token.
+- [ ] Edit env vars with **real** company name + contact email (placeholders won't pass Meta review).
+- [ ] Point WhatsApp Cloud API webhook at `https://<render-url>/api/whatsapp/webhook`
+      (verify token = `WHATSAPP_VERIFY_TOKEN`); set `PUBLIC_BASE_URL` to the Render URL.
+- [ ] Paste the two legal URLs (`/privacy`, `/terms`) into the Meta app dashboard to unlock the token.
+- [x] Deploy backend to a **public HTTPS** host → done (Render). **See §5.**
 - [ ] (Optional, offered but not yet done) Seed SQL for Supabase: admin user + sample flow + KB.
 - [x] Switch the app to Supabase (Prisma `provider = "postgresql"` + dropped the JSON
       string-bridge). **See "Done so far" §3.**

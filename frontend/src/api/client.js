@@ -1,9 +1,11 @@
 import axios from 'axios';
 
-// In production the API is served from the same origin as the built app, so use
-// relative URLs. In dev the Vite server (5173) talks to the backend on 4000.
-// Override with VITE_API_URL if the API lives elsewhere.
-const baseURL = import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? 'http://localhost:4000' : '');
+// Always use same-origin relative URLs. In production the backend serves the
+// built app, so "/api/..." hits the same host. In dev, Vite proxies "/api" and
+// "/uploads" to the local backend (see vite.config.js). Only set VITE_API_URL
+// if the API genuinely lives on a different origin — do NOT set it to localhost
+// for production, or that value gets baked into the build.
+const baseURL = import.meta.env.VITE_API_URL ?? '';
 
 const api = axios.create({ baseURL });
 
