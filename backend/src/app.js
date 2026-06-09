@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import config from './config/index.js';
 import { requireAuth } from './middleware/auth.js';
 import { notFound, errorHandler } from './middleware/error.js';
@@ -41,6 +44,20 @@ app.use('/api/knowledge-base', requireAuth, knowledgeBaseRoutes);
 app.use('/api/links', requireAuth, linkRoutes);
 app.use('/api/analytics', requireAuth, analyticsRoutes);
 app.use('/api/uploads', requireAuth, uploadsRoutes); // audio upload for question voice notes
+
+// ── Serve the built admin frontend (single-service deploy) ───
+// When frontend/dist exists, serve it and fall back to index.html for client-side
+// routing. API/asset paths fall through to the 404 handler instead. Skipped in
+// dev (no dist) where Vite serves the frontend separately on :5173.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const clientDist = path.resolve(__dirname, '../../frontend/dist');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use(notFound);
 app.use(errorHandler);
