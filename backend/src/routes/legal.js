@@ -2,8 +2,9 @@ import { Router } from 'express';
 import config from '../config/index.js';
 
 // Public, unauthenticated legal pages required by Meta to obtain an app token:
-//   GET /privacy  → Privacy Policy
-//   GET /terms    → Terms of Service
+//   GET /privacy        → Privacy Policy
+//   GET /terms          → Terms of Service
+//   GET /data-deletion  → User Data Deletion instructions (Meta requirement)
 const router = Router();
 
 const { appName, companyName, contactEmail, websiteUrl } = config.legal;
@@ -35,6 +36,7 @@ ${bodyHtml}
   <footer>
     ${companyName} · <a href="mailto:${contactEmail}">${contactEmail}</a>
     · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a>
+    · <a href="/data-deletion">Data Deletion</a>
   </footer>
 </body>
 </html>`;
@@ -142,7 +144,45 @@ const termsHtml = page(
 `
 );
 
+const dataDeletionHtml = page(
+  'User Data Deletion',
+  `
+  <h1>User Data Deletion</h1>
+  <p class="meta">Last updated: ${effectiveDate}</p>
+
+  <p>${companyName} ("we", "us", "our") lets you request deletion of the personal data we hold
+  about you in connection with ${appName} (the "Service"), a WhatsApp Business messaging assistant.</p>
+
+  <h2>What data we hold</h2>
+  <p>If you have messaged a business that uses the Service through WhatsApp, we may store your
+  WhatsApp phone number and display name, the content of your messages, and conversation metadata
+  (timestamps, flow progress, link-click events).</p>
+
+  <h2>How to request deletion</h2>
+  <p>To have your personal data deleted, email
+  <a href="mailto:${contactEmail}?subject=Data%20Deletion%20Request">${contactEmail}</a>
+  from, or referencing, the WhatsApp phone number you used, with the subject line
+  <strong>"Data Deletion Request"</strong>. Please include:</p>
+  <ul>
+    <li>The WhatsApp phone number whose data you want deleted.</li>
+    <li>The name of the business you contacted (if known).</li>
+  </ul>
+
+  <h2>What happens next</h2>
+  <p>We will verify the request and delete the associated personal data — including your contact
+  details, message history, and collected answers — within <strong>30 days</strong>, except where we
+  are required to retain certain information to comply with a legal obligation. We will confirm by
+  email once the deletion is complete.</p>
+
+  <h2>Contact</h2>
+  <p>${companyName}, <a href="mailto:${contactEmail}">${contactEmail}</a>${
+    websiteUrl ? `, <a href="${websiteUrl}">${websiteUrl}</a>` : ''
+  }.</p>
+`
+);
+
 router.get('/privacy', (req, res) => res.type('html').send(privacyHtml));
 router.get('/terms', (req, res) => res.type('html').send(termsHtml));
+router.get('/data-deletion', (req, res) => res.type('html').send(dataDeletionHtml));
 
 export default router;
