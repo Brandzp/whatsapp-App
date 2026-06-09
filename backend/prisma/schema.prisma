@@ -1,0 +1,197 @@
+// WhatsApp Business AI Agent — data model (PostgreSQL / Supabase)
+//
+// NOTE: status/sender/question-type are kept as String (validated in app code)
+// rather than Postgres enums, to keep the values flexible. tags / triggerWords /
+// options / metadata / rawPayload are native jsonb (Prisma `Json`), so the app
+// reads and writes plain arrays/objects directly — no (de)serialization shim.
+// The matching SQL lives in backend/supabase/schema.sql.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────────────────────
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Core domain
+// ─────────────────────────────────────────────────────────────
+model Customer {
+  id        String   @id @default(cuid())
+  name      String?
+  phone     String   @unique
+  email     String?
+  tags      Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+  answers       CustomerAnswer[]
+  events        AnalyticsEvent[]
+}
+
+model Conversation {
+  id                String   @id @default(cuid())
+  customerId        String
+  whatsappPhone     String
+  status            String   @default("active") // active | completed | abandoned | needs_human
+  intent            String?
+  currentFlowId     String?
+  currentQuestionId String?
+  needsHuman        Boolean  @default(false)
+  lastMessage       String?
+  leadScore         Int      @default(0)
+  linkSent          Boolean  @default(false)
+  assignedTo        String?
+  tags              Json     @default("[]")
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastActivityAt    DateTime @default(now())
+
+  customer Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  flow     Flow?            @relation(fields: [currentFlowId], references: [id])
+  messages Message[]
+  answers  CustomerAnswer[]
+  events   AnalyticsEvent[]
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderType     String // customer | agent | human
+  messageText    String
+  intent         String?
+  rawPayload     Json?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model Flow {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  triggerWords Json     @default("[]")
+  finalMessage String?
+  linkId       String?
+  isActive     Boolean  @default(true)
+  isDefault    Boolean  @default(false) // start on ANY message (no trigger words needed)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  questions     FlowQuestion[]
+  link          Link?            @relation("FlowLink", fields: [linkId], references: [id])
+  conversations Conversation[]
+  answers       CustomerAnswer[]
+  events        AnalyticsEvent[]
+  relatedLinks  Link[]           @relation("LinkRelatedFlow")
+}
+
+model FlowQuestion {
+  id           String   @id @default(cuid())
+  flowId       String
+  questionText String
+  questionType String   @default("text") // text|phone|email|number|single_choice|multiple_choice|yes_no|date|custom
+  options      Json     @default("[]")
+  voiceUrl     String? // optional pre-recorded voice note (audio) sent when this question is asked
+  isRequired   Boolean  @default(true)
+  orderIndex   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  flow    Flow             @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  answers CustomerAnswer[]
+
+  @@index([flowId])
+}
+
+model CustomerAnswer {
+  id             String   @id @default(cuid())
+  conversationId String
+  customerId     String
+  flowId         String?
+  questionId     String?
+  questionText   String?
+  answer         String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  customer     Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  flow         Flow?         @relation(fields: [flowId], references: [id])
+  question     FlowQuestion? @relation(fields: [questionId], references: [id])
+
+  @@index([conversationId])
+}
+
+model Link {
+  id            String   @id @default(cuid())
+  name          String
+  url           String
+  description   String?
+  relatedFlowId String?
+  isActive      Boolean  @default(true)
+  trackClicks   Boolean  @default(true)
+  clicksCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  relatedFlow Flow?  @relation("LinkRelatedFlow", fields: [relatedFlowId], references: [id])
+  flowsUsing  Flow[] @relation("FlowLink")
+}
+
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  eventName      String
+  conversationId String?
+  customerId     String?
+  customerPhone  String?
+  flowId         String?
+  questionId     String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  customer     Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  flow         Flow?         @relation(fields: [flowId], references: [id], onDelete: SetNull)
+
+  @@index([eventName])
+  @@index([createdAt])
+}
+
+// Knowledge base is a singleton record the agent answers from.
+model KnowledgeBase {
+  id                  String   @id @default(cuid())
+  businessDescription String?
+  productInfo         String?
+  serviceInfo         String?
+  prices              String?
+  shippingInfo        String?
+  returnPolicy        String?
+  faq                 String?
+  openingHours        String?
+  contactDetails      String?
+  limitations         String?
+  customInstructions  String?
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+}
