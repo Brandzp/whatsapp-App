@@ -19,7 +19,7 @@ router.get(
 router.post(
   '/flows',
   asyncHandler(async (req, res) => {
-    const { name, description, triggerWords, finalMessage, linkId, isActive, isDefault, questions } = req.body || {};
+    const { name, description, triggerWords, finalMessage, sendFinalMessage, linkId, isActive, isDefault, questions } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name is required' });
     const flow = await prisma.flow.create({
       data: {
@@ -27,6 +27,7 @@ router.post(
         description: description || null,
         triggerWords: Array.isArray(triggerWords) ? triggerWords : [],
         finalMessage: finalMessage || null,
+        sendFinalMessage: sendFinalMessage ?? true,
         linkId: linkId || null,
         isActive: isActive ?? true,
         isDefault: isDefault ?? false,
@@ -61,12 +62,13 @@ router.get(
 router.put(
   '/flows/:id',
   asyncHandler(async (req, res) => {
-    const { name, description, triggerWords, finalMessage, linkId, isActive, isDefault } = req.body || {};
+    const { name, description, triggerWords, finalMessage, sendFinalMessage, linkId, isActive, isDefault } = req.body || {};
     const data = {};
     if (name !== undefined) data.name = name;
     if (description !== undefined) data.description = description;
     if (triggerWords !== undefined) data.triggerWords = Array.isArray(triggerWords) ? triggerWords : [];
     if (finalMessage !== undefined) data.finalMessage = finalMessage;
+    if (sendFinalMessage !== undefined) data.sendFinalMessage = sendFinalMessage;
     if (linkId !== undefined) data.linkId = linkId || null;
     if (isActive !== undefined) data.isActive = isActive;
     if (isDefault !== undefined) data.isDefault = isDefault;

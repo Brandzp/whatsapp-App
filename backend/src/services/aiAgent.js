@@ -378,9 +378,11 @@ function validateAnswer(q, text) {
   }
 }
 
-// All questions answered → send the final message (the link is appended by the engine).
+// All questions answered → optionally send the closing message (the link, if any,
+// is appended by the engine). When sendFinalMessage is false, or no message is set,
+// `reply` is empty and the engine sends nothing (beyond a link, if configured).
 function finishFlow(flow, collected) {
-  const finalMsg = flow.finalMessage || 'תודה, קיבלתי את כל הפרטים שלך 🙏';
+  const finalMsg = flow.sendFinalMessage === false ? '' : (flow.finalMessage || '');
   return base({
     reply: finalMsg,
     intent: 'predefined_flow_start',

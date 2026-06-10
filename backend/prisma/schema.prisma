@@ -93,6 +93,7 @@ model Flow {
   description  String?
   triggerWords Json     @default("[]")
   finalMessage String?
+  sendFinalMessage Boolean @default(true) // when false, no closing message is sent at flow end
   linkId       String?
   isActive     Boolean  @default(true)
   isDefault    Boolean  @default(false) // start on ANY message (no trigger words needed)

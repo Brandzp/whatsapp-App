@@ -71,12 +71,15 @@ create table if not exists "Flow" (
   "description"  text,
   "triggerWords" jsonb not null default '[]'::jsonb,
   "finalMessage" text,
+  "sendFinalMessage" boolean not null default true, -- when false, no closing message at flow end
   "linkId"       text references "Link"("id") on delete set null,
   "isActive"     boolean not null default true,
   "isDefault"    boolean not null default false,
   "createdAt"    timestamptz not null default now(),
   "updatedAt"    timestamptz not null default now()
 );
+-- Patch pre-existing Flow tables created before sendFinalMessage existed.
+alter table "Flow" add column if not exists "sendFinalMessage" boolean not null default true;
 
 -- Link.relatedFlowId references Flow; added after Flow exists to break the cycle.
 alter table "Link"

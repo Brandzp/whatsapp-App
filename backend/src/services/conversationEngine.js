@@ -23,6 +23,39 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     orderBy: { createdAt: 'desc' },
   });
 
+  // 2a) "One & done": if there's no open conversation but this customer already
+  // COMPLETED A FLOW, stay silent — record the inbound message (so it's visible in
+  // the dashboard) and bump activity, but don't reply or restart a flow. Scoped to
+  // conversations that actually ran a flow (currentFlowId set), so plain chit-chat
+  // the AI happens to mark "completed" doesn't permanently silence the customer.
+  if (!conversation) {
+    const completed = await prisma.conversation.findFirst({
+      where: { customerId: customer.id, status: 'completed', currentFlowId: { not: null } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (completed) {
+      await prisma.message.create({
+        data: {
+          conversationId: completed.id,
+          senderType: 'customer',
+          messageText: text,
+          rawPayload: rawPayload || undefined,
+        },
+      });
+      await prisma.conversation.update({
+        where: { id: completed.id },
+        data: { lastMessage: text, lastActivityAt: new Date() },
+      });
+      await trackEvent(EVENTS.MESSAGE_RECEIVED, {
+        conversationId: completed.id,
+        customerId: customer.id,
+        customerPhone: phone,
+        metadata: { text, suppressed: true },
+      });
+      return { conversation: completed, agentResponse: null, replySent: false, isNew: false, suppressed: true };
+    }
+  }
+
   let isNew = false;
   if (!conversation) {
     conversation = await prisma.conversation.create({
@@ -205,21 +238,9 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     },
   });
 
-  // 10) Save agent reply + send via WhatsApp
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      senderType: 'agent',
-      messageText: replyText,
-      intent: agentResponse.intent,
-    },
-  });
-  await trackEvent(EVENTS.MESSAGE_SENT, {
-    conversationId: conversation.id,
-    customerId: customer.id,
-    customerPhone: phone,
-    metadata: { reply: replyText, intent: agentResponse.intent },
-  });
+  // 10) Save agent reply + send via WhatsApp. Skip entirely when there's nothing
+  // to send — e.g. a flow that completes with no closing message and no link.
+  const hasReply = !!(replyText && replyText.trim());
 
   // If the question now being asked has a pre-recorded voice note, play it
   // first; the text reply (which also carries any option list) follows.
@@ -229,13 +250,30 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     voiceUrl = askedQuestion?.voiceUrl || null;
   }
 
-  let replySent = true;
-  try {
-    if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
-    await sendWhatsAppMessage(phone, replyText);
-  } catch (err) {
-    replySent = false;
-    console.error('[engine] failed to send WhatsApp reply:', err.message);
+  let replySent = false;
+  if (hasReply) {
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderType: 'agent',
+        messageText: replyText,
+        intent: agentResponse.intent,
+      },
+    });
+    await trackEvent(EVENTS.MESSAGE_SENT, {
+      conversationId: conversation.id,
+      customerId: customer.id,
+      customerPhone: phone,
+      metadata: { reply: replyText, intent: agentResponse.intent },
+    });
+    replySent = true;
+    try {
+      if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
+      await sendWhatsAppMessage(phone, replyText);
+    } catch (err) {
+      replySent = false;
+      console.error('[engine] failed to send WhatsApp reply:', err.message);
+    }
   }
 
   return { conversation, agentResponse: { ...agentResponse, reply: replyText }, replySent, isNew };
@@ -256,6 +294,7 @@ async function loadActiveFlows() {
     triggerWords: f.triggerWords,
     isDefault: f.isDefault,
     finalMessage: f.finalMessage,
+    sendFinalMessage: f.sendFinalMessage,
     linkId: f.linkId,
     linkUrl: f.link?.url || null,
     questions: f.questions.map((q) => ({

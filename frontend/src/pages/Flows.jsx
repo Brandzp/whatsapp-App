@@ -117,6 +117,7 @@ function FlowEditor({ initial, links, onClose, onSaved }) {
     description: initial.description || '',
     triggerWords: (initial.triggerWords || []).join(', '),
     finalMessage: initial.finalMessage || '',
+    sendFinalMessage: initial.sendFinalMessage ?? true,
     linkId: initial.linkId || '',
     isActive: initial.isActive ?? true,
     isDefault: initial.isDefault ?? false,
@@ -167,6 +168,7 @@ function FlowEditor({ initial, links, onClose, onSaved }) {
       description: form.description,
       triggerWords: form.triggerWords.split(',').map((s) => s.trim()).filter(Boolean),
       finalMessage: form.finalMessage,
+      sendFinalMessage: form.sendFinalMessage,
       linkId: form.linkId || null,
       isActive: form.isActive,
       isDefault: form.isDefault,
@@ -230,8 +232,24 @@ function FlowEditor({ initial, links, onClose, onSaved }) {
           <input className="input" value={form.triggerWords} onChange={(e) => set('triggerWords', e.target.value)} placeholder="פגישה, לקבוע, תור" />
         </div>
         <div>
-          <label className="label">הודעת סיום</label>
-          <textarea className="input h-20" value={form.finalMessage} onChange={(e) => set('finalMessage', e.target.value)} />
+          <label className="flex items-center gap-2 text-sm mb-1">
+            <input
+              type="checkbox"
+              checked={form.sendFinalMessage}
+              onChange={(e) => set('sendFinalMessage', e.target.checked)}
+            />
+            שלח הודעת סיום בסוף התהליך
+          </label>
+          {form.sendFinalMessage ? (
+            <textarea
+              className="input h-20"
+              placeholder="הודעת הסיום שתישלח ללקוח (אם יש קישור, הוא יצורף אוטומטית)"
+              value={form.finalMessage}
+              onChange={(e) => set('finalMessage', e.target.value)}
+            />
+          ) : (
+            <p className="text-xs text-gray-400">לא תישלח הודעת סיום (אם מוגדר קישור — הוא עדיין יישלח).</p>
+          )}
         </div>
         <div className="space-y-2">
           <label className="flex items-center gap-2 text-sm">
