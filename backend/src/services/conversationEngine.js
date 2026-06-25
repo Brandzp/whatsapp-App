@@ -242,9 +242,9 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
   // to send — e.g. a flow that completes with no closing message and no link.
   const hasReply = !!(replyText && replyText.trim());
 
-  // If the question now being asked has a pre-recorded voice note and/or image,
-  // send the text first (so its link preview shows on top), then the voice note,
-  // then the image last.
+  // Media attached to the question being asked: when there's an image, the text
+  // is sent AS THE IMAGE CAPTION (one combined message); otherwise as a normal
+  // text message. The voice note (if any) follows as a separate message.
   let voiceUrl = null;
   let imageUrl = null;
   if (agentResponse.next_action === 'ask_next_question' && agentResponse.current_question_id && flow) {
@@ -254,7 +254,7 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
   }
 
   let replySent = false;
-  if (hasReply) {
+  if (hasReply || imageUrl) {
     await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -271,9 +271,12 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     });
     replySent = true;
     try {
-      await sendWhatsAppMessage(phone, replyText);
+      if (imageUrl) {
+        await sendWhatsAppImage(phone, imageUrl, hasReply ? replyText : undefined);
+      } else {
+        await sendWhatsAppMessage(phone, replyText);
+      }
       if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
-      if (imageUrl) await sendWhatsAppImage(phone, imageUrl);
     } catch (err) {
       replySent = false;
       console.error('[engine] failed to send WhatsApp reply:', err.message);
