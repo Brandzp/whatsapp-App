@@ -5,6 +5,13 @@ import { sendWhatsAppMessage, sendWhatsAppAudio, sendWhatsAppImage } from './wha
 import { trackEvent, EVENTS } from './analytics.js';
 import { computeLeadScore } from './leadScore.js';
 
+// A URL-based image is downloaded by WhatsApp before delivery, so it can lag
+// behind a small voice note sent right after. This short pause (only when a
+// question has BOTH image and voice) gives the image a head start so it arrives
+// first. Tune with MEDIA_SEND_DELAY_MS (e.g. set 600 for a shorter wait).
+const MEDIA_ORDER_DELAY_MS = Number(process.env.MEDIA_SEND_DELAY_MS) || 1000;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Main entry point: process one inbound customer message end-to-end.
  * Returns { conversation, agentResponse, replySent }.
@@ -276,7 +283,10 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
       } else {
         await sendWhatsAppMessage(phone, replyText);
       }
-      if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
+      if (voiceUrl) {
+        if (imageUrl) await sleep(MEDIA_ORDER_DELAY_MS); // let the image land first
+        await sendWhatsAppAudio(phone, voiceUrl);
+      }
     } catch (err) {
       replySent = false;
       console.error('[engine] failed to send WhatsApp reply:', err.message);
