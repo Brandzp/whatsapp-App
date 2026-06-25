@@ -25,9 +25,15 @@ app.use(cors({ origin: config.corsOrigins, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 if (config.env === 'development') app.use(morgan('dev'));
 
-// Health
+// Health — `commit` reflects the deployed build (Render sets RENDER_GIT_COMMIT),
+// so GET /health confirms exactly which version is live.
 app.get('/health', (req, res) =>
-  res.json({ ok: true, openai: config.openai.enabled, whatsapp: config.whatsapp.enabled })
+  res.json({
+    ok: true,
+    commit: (process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7),
+    openai: config.openai.enabled,
+    whatsapp: config.whatsapp.enabled,
+  })
 );
 
 // ── Public routes ────────────────────────────────────────────
