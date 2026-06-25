@@ -115,6 +115,7 @@ model FlowQuestion {
   questionType String   @default("text") // text|phone|email|number|single_choice|multiple_choice|yes_no|date|custom
   options      Json     @default("[]")
   voiceUrl     String? // optional pre-recorded voice note (audio) sent when this question is asked
+  imageUrl     String? // optional image sent when this question is asked
   isRequired   Boolean  @default(true)
   orderIndex   Int      @default(0)
   createdAt    DateTime @default(now())

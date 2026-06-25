@@ -160,6 +160,19 @@ function FlowEditor({ initial, links, onClose, onSaved }) {
       alert(err.response?.data?.error || 'העלאת ההקלטה נכשלה');
     }
   }
+  async function uploadImage(i, file) {
+    if (!file) return;
+    updateQuestion(i, { imageUploading: true });
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await api.post('/api/uploads/image', fd);
+      updateQuestion(i, { imageUrl: res.data.url, imageUploading: false });
+    } catch (err) {
+      updateQuestion(i, { imageUploading: false });
+      alert(err.response?.data?.error || 'העלאת התמונה נכשלה');
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -331,6 +344,34 @@ function FlowEditor({ initial, links, onClose, onSaved }) {
                   )}
                   <span className="text-xs text-gray-400">לתצוגת "הודעה קולית" בוואטסאפ העלו קובץ ‎.ogg‎ (Opus)</span>
                 </div>
+                {/* Optional image for this question (sent together with the voice note) */}
+                <div className="flex flex-wrap items-center gap-2 pr-7 mt-2">
+                  <span className="text-sm text-gray-600">🖼️ תמונה:</span>
+                  {q.imageUrl ? (
+                    <>
+                      <img src={q.imageUrl} alt="" className="h-12 w-12 object-cover rounded border" />
+                      <button
+                        type="button"
+                        className="btn-ghost px-2 text-red-600"
+                        onClick={() => updateQuestion(i, { imageUrl: null })}
+                      >
+                        הסרה
+                      </button>
+                    </>
+                  ) : (
+                    <label className="btn-ghost cursor-pointer text-sm">
+                      {q.imageUploading ? 'מעלה…' : 'העלאת תמונה'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={q.imageUploading}
+                        onChange={(e) => uploadImage(i, e.target.files?.[0])}
+                      />
+                    </label>
+                  )}
+                  <span className="text-xs text-gray-400">תישלח יחד עם השאלה (JPG/PNG, עד 5MB)</span>
+                </div>
               </div>
             ))}
             {questions.length === 0 && <p className="text-sm text-gray-400">אין שאלות עדיין</p>}
@@ -355,6 +396,7 @@ function serializeQ(q) {
     questionType: q.questionType,
     options: raw.split(',').map((s) => s.trim()).filter(Boolean),
     voiceUrl: q.voiceUrl || null,
+    imageUrl: q.imageUrl || null,
     isRequired: q.isRequired,
   };
 }

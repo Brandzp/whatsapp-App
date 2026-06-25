@@ -127,13 +127,15 @@ create table if not exists "FlowQuestion" (
   "questionType" text not null default 'text', -- text|phone|email|number|single_choice|multiple_choice|yes_no|date|custom
   "options"      jsonb not null default '[]'::jsonb,
   "voiceUrl"     text, -- optional pre-recorded voice note sent when this question is asked
+  "imageUrl"     text, -- optional image sent when this question is asked
   "isRequired"   boolean not null default true,
   "orderIndex"   integer not null default 0,
   "createdAt"    timestamptz not null default now(),
   "updatedAt"    timestamptz not null default now()
 );
--- Patch pre-existing FlowQuestion tables that were created before voiceUrl existed.
+-- Patch pre-existing FlowQuestion tables that were created before these existed.
 alter table "FlowQuestion" add column if not exists "voiceUrl" text;
+alter table "FlowQuestion" add column if not exists "imageUrl" text;
 create index if not exists "FlowQuestion_flowId_idx" on "FlowQuestion"("flowId");
 
 create table if not exists "CustomerAnswer" (

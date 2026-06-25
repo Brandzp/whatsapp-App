@@ -38,6 +38,7 @@ router.post(
                 questionType: q.questionType || q.type || 'text',
                 options: Array.isArray(q.options) ? q.options : [],
                 voiceUrl: q.voiceUrl || null,
+                imageUrl: q.imageUrl || null,
                 isRequired: q.isRequired ?? q.required ?? true,
                 orderIndex: q.orderIndex ?? i,
               })),
@@ -89,7 +90,7 @@ router.delete(
 router.post(
   '/flows/:id/questions',
   asyncHandler(async (req, res) => {
-    const { questionText, question, questionType, type, options, voiceUrl, isRequired, required, orderIndex } = req.body || {};
+    const { questionText, question, questionType, type, options, voiceUrl, imageUrl, isRequired, required, orderIndex } = req.body || {};
     const count = await prisma.flowQuestion.count({ where: { flowId: req.params.id } });
     const q = await prisma.flowQuestion.create({
       data: {
@@ -98,6 +99,7 @@ router.post(
         questionType: questionType || type || 'text',
         options: Array.isArray(options) ? options : [],
         voiceUrl: voiceUrl || null,
+        imageUrl: imageUrl || null,
         isRequired: isRequired ?? required ?? true,
         orderIndex: orderIndex ?? count,
       },
@@ -109,12 +111,13 @@ router.post(
 router.put(
   '/questions/:id',
   asyncHandler(async (req, res) => {
-    const { questionText, questionType, options, voiceUrl, isRequired, orderIndex } = req.body || {};
+    const { questionText, questionType, options, voiceUrl, imageUrl, isRequired, orderIndex } = req.body || {};
     const data = {};
     if (questionText !== undefined) data.questionText = questionText;
     if (questionType !== undefined) data.questionType = questionType;
     if (options !== undefined) data.options = Array.isArray(options) ? options : [];
     if (voiceUrl !== undefined) data.voiceUrl = voiceUrl || null;
+    if (imageUrl !== undefined) data.imageUrl = imageUrl || null;
     if (isRequired !== undefined) data.isRequired = isRequired;
     if (orderIndex !== undefined) data.orderIndex = orderIndex;
     const q = await prisma.flowQuestion.update({ where: { id: req.params.id }, data });

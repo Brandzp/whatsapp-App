@@ -77,6 +77,44 @@ export async function sendWhatsAppAudio(toPhone, link) {
 }
 
 /**
+ * Send an image message through the Cloud API. `link` must be a publicly
+ * reachable HTTPS URL to the image (jpg/png). Optional caption. In simulator
+ * mode (no credentials) this just logs.
+ */
+export async function sendWhatsAppImage(toPhone, link, caption) {
+  if (!link) return { skipped: true };
+  if (!config.whatsapp.enabled) {
+    console.log(`[whatsapp:simulated] → ${toPhone}: [image] ${link}`);
+    return { simulated: true };
+  }
+
+  const url = `https://graph.facebook.com/${config.whatsapp.apiVersion}/${config.whatsapp.phoneNumberId}/messages`;
+  const body = {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to: toPhone,
+    type: 'image',
+    image: { link, ...(caption ? { caption } : {}) },
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${config.whatsapp.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('[whatsapp] image send failed', res.status, errText);
+    throw new Error(`WhatsApp image send failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+/**
  * Extract the first inbound text message from a WhatsApp webhook payload.
  * Returns { phone, text, name, waMessageId, raw } or null if not a user message.
  */

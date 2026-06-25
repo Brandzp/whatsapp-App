@@ -1,7 +1,7 @@
 import prisma from '../lib/prisma.js';
 import config from '../config/index.js';
 import { generateAgentResponse, ruleBasedResponse } from './aiAgent.js';
-import { sendWhatsAppMessage, sendWhatsAppAudio } from './whatsapp.js';
+import { sendWhatsAppMessage, sendWhatsAppAudio, sendWhatsAppImage } from './whatsapp.js';
 import { trackEvent, EVENTS } from './analytics.js';
 import { computeLeadScore } from './leadScore.js';
 
@@ -242,12 +242,15 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
   // to send — e.g. a flow that completes with no closing message and no link.
   const hasReply = !!(replyText && replyText.trim());
 
-  // If the question now being asked has a pre-recorded voice note, play it
-  // first; the text reply (which also carries any option list) follows.
+  // If the question now being asked has a pre-recorded image and/or voice note,
+  // send them first (image, then voice); the text reply (which also carries any
+  // option list) follows.
   let voiceUrl = null;
+  let imageUrl = null;
   if (agentResponse.next_action === 'ask_next_question' && agentResponse.current_question_id && flow) {
     const askedQuestion = flow.questions.find((q) => q.id === agentResponse.current_question_id);
     voiceUrl = askedQuestion?.voiceUrl || null;
+    imageUrl = askedQuestion?.imageUrl || null;
   }
 
   let replySent = false;
@@ -268,6 +271,7 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     });
     replySent = true;
     try {
+      if (imageUrl) await sendWhatsAppImage(phone, imageUrl);
       if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
       await sendWhatsAppMessage(phone, replyText);
     } catch (err) {
@@ -303,6 +307,7 @@ async function loadActiveFlows() {
       questionType: q.questionType,
       options: q.options,
       voiceUrl: q.voiceUrl,
+      imageUrl: q.imageUrl,
       isRequired: q.isRequired,
       orderIndex: q.orderIndex,
     })),
