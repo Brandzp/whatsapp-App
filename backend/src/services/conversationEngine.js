@@ -242,9 +242,9 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
   // to send — e.g. a flow that completes with no closing message and no link.
   const hasReply = !!(replyText && replyText.trim());
 
-  // If the question now being asked has a pre-recorded image and/or voice note,
-  // send them first (image, then voice); the text reply (which also carries any
-  // option list) follows.
+  // If the question now being asked has a pre-recorded voice note and/or image,
+  // send the text first (so its link preview shows on top), then the voice note,
+  // then the image last.
   let voiceUrl = null;
   let imageUrl = null;
   if (agentResponse.next_action === 'ask_next_question' && agentResponse.current_question_id && flow) {
@@ -271,9 +271,9 @@ export async function handleIncomingMessage({ phone, text, name, rawPayload }) {
     });
     replySent = true;
     try {
-      if (imageUrl) await sendWhatsAppImage(phone, imageUrl);
-      if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
       await sendWhatsAppMessage(phone, replyText);
+      if (voiceUrl) await sendWhatsAppAudio(phone, voiceUrl);
+      if (imageUrl) await sendWhatsAppImage(phone, imageUrl);
     } catch (err) {
       replySent = false;
       console.error('[engine] failed to send WhatsApp reply:', err.message);
